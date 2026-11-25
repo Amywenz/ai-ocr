@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>OCR文字识别服务</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #999;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .result-image {
+            max-width: 100%;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+        }
+        .text-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OCR文字识别服务</h1>
+
+        <div class="card">
+            <h2>通用文字识别</h2>
+            <p>上传图片提取所有文字内容</p>
+            <div class="upload-area" id="ocrUploadArea">
+                <p id="ocrFileName">点击或拖拽图片到此处上传</p>
+            </div>
+            <input type="file" id="ocrFileInput" accept="image/*" style="display: none;">
+            <button id="ocrSubmit">识别文字</button>
+            <div id="ocrResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>车牌识别</h2>
+            <p>上传图片仅识别车牌号码</p>
+            <div class="upload-area" id="plateUploadArea">
+                <p id="plateFileName">点击或拖拽图片到此处上传</p>
+            </div>
+            <input type="file" id="plateFileInput" accept="image/*" style="display: none;">
+            <button id="plateSubmit">识别车牌</button>
+            <div id="plateResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // 通用OCR功能
+        document.getElementById('ocrUploadArea').addEventListener('click', () => {
+            document.getElementById('ocrFileInput').click();
+        });
+
+        document.getElementById('ocrFileInput').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                // 只改提示文字，不能覆盖 upload-area 的 innerHTML（会把 input 一起删掉）
+                document.getElementById('ocrFileName').textContent =
+                    `已选择文件: ${this.files[0].name}`;
+            }
+        });
+
+        document.getElementById('ocrSubmit').addEventListener('click', async function() {
+            const fileInput = document.getElementById('ocrFileInput');
+            if (!fileInput || fileInput.files.length === 0) {
+                alert('请先选择图片');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const out = document.getElementById('ocrResult');
+            out.innerHTML = '<p>识别中，请稍候…</p>';
+
+            try {
+                const response = await fetch('/api/ocr', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    out.innerHTML = `<div style="color: red;">错误: ${result.error}</div>`;
+                    return;
+                }
+
+                let html = '<h3>识别结果:</h3>';
+
+                if (!result.texts || result.texts.length === 0) {
+                    html += '<p>未识别到文字</p>';
+                } else {
+                    result.texts.forEach(item => {
+                        html += `
+                            <div class="text-item">
+                                <strong>文本:</strong> ${item.text}<br>
+                                <strong>置信度:</strong> ${Number(item.confidence).toFixed(4)}
+                            </div>
+                        `;
+                    });
+                }
+
+                if (result.result_image) {
+                    html += `<img src="/results/${result.result_image.split('/').pop()}" class="result-image">`;
+                }
+
+                out.innerHTML = html;
+            } catch (error) {
+                out.innerHTML = `<div style="color: red;">请求失败: ${error.message}</div>`;
+            }
+        });
+
+        // 车牌识别功能
+        document.getElementById('plateUploadArea').addEventListener('click', () => {
+            document.getElementById('plateFileInput').click();
+        });
+
+        document.getElementById('plateFileInput').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                document.getElementById('plateFileName').textContent =
+                    `已选择文件: ${this.files[0].name}`;
+            }
+        });
+
+        document.getElementById('plateSubmit').addEventListener('click', async function() {
+            const fileInput = document.getElementById('plateFileInput');
+            if (!fileInput || fileInput.files.length === 0) {
+                alert('请先选择图片');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const out = document.getElementById('plateResult');
+            out.innerHTML = '<p>识别中，请稍候…</p>';
+
+            try {
+                const response = await fetch('/api/license_plate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    out.innerHTML = `<div style="color: red;">错误: ${result.error}</div>`;
+                    return;
+                }
+
+                let html = '<h3>识别结果:</h3>';
+
+                if (!result.license_plates || result.license_plates.length === 0) {
+                    html += '<p>未识别到车牌</p>';
+                } else {
+                    result.license_plates.forEach(item => {
+                        html += `
+                            <div class="text-item">
+                                <strong>车牌号码:</strong> ${item.text}<br>
+                                <strong>置信度:</strong> ${Number(item.confidence).toFixed(4)}
+                            </div>
+                        `;
+                    });
+                }
+
+                if (result.result_image) {
+                    html += `<img src="/results/${result.result_image.split('/').pop()}" class="result-image">`;
+                }
+
+                out.innerHTML = html;
+            } catch (error) {
+                out.innerHTML = `<div style="color: red;">请求失败: ${error.message}</div>`;
+            }
+        });
+
+        // 拖拽上传功能
+        function setupDragAndDrop(dropZone, fileInput, labelId) {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#4CAF50';
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                dropZone.style.borderColor = '#ccc';
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ccc';
+
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    document.getElementById(labelId).textContent =
+                        `已选择文件: ${e.dataTransfer.files[0].name}`;
+                }
+            });
+        }
+
+        setupDragAndDrop(
+            document.getElementById('ocrUploadArea'),
+            document.getElementById('ocrFileInput'),
+            'ocrFileName'
+        );
+        setupDragAndDrop(
+            document.getElementById('plateUploadArea'),
+            document.getElementById('plateFileInput'),
+            'plateFileName'
+        );
+    </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# ---- 虚拟环境（体积很大，绝对不要提交）----
+.venv/
+.venv.broken-3.7/
+venv/
+env/
+ENV/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+
+# ---- 运行产物 ----
+ocr_result/
+uploads/
+ocr_service.log
+*.log
+
+# ---- IDE / 编辑器 ----
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# ---- AI 对话记录（含本机路径，不必公开）----
+.specstory/
+
+# ---- 系统文件 ----
+.DS_Store
+Thumbs.db
+desktop.ini
